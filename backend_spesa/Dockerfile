@@ -1,4 +1,4 @@
-# 1. Fase di Build
+# Fase di build
 FROM dart:stable AS build
 
 WORKDIR /app
@@ -8,20 +8,19 @@ RUN dart pub get
 
 COPY . .
 
-# Compilazione di produzione con Dart Frog
 RUN dart pub global activate dart_frog_cli
 RUN dart pub global run dart_frog_cli:dart_frog build
 
-# 2. Fase di Runtime con Debian slim pulito
-FROM debian:bookworm-slim
+# Fase di esecuzione pulita usando l'immagine ufficiale di Dart
+FROM dart:stable-runtime
 
 WORKDIR /app
 
-# Copia l'eseguibile e i file necessari generati dal build di Dart Frog
+# Copia l'applicazione compilata dalla fase precedente
 COPY --from=build /app/build/ /app/
 
 EXPOSE 8080
 ENV PORT=8080
 
-# Avvia il server usando il runtime di sistema o l'eseguibile nativo
+# Avvia il server eseguendo il file binario compilato
 CMD ["/app/bin/server"]
