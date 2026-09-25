@@ -1,25 +1,25 @@
-# Usa l'immagine ufficiale di Dart
+# Fase di build
 FROM dart:stable AS build
 
 WORKDIR /app
 
-# Copia i file di configurazione delle dipendenze
 COPY pubspec.* ./
 RUN dart pub get
 
-# Copia tutto il codice sorgente
 COPY . .
 
-# Attiva la CLI di Dart Frog e compila il pacchetto per la produzione
 RUN dart pub global activate dart_frog_cli
 RUN dart pub global run dart_frog_cli:dart_frog build
 
-# Fase finale pulita e minimale (scratch)
-FROM scratch
-COPY --from=build /runtime/ /
+# Fase di esecuzione con un'immagine Debian-slim leggera (evitiamo i problemi di scratch)
+FROM debian:bookworm-slim
 
-# Copia l'eseguibile generato da Dart Frog nella cartella di destinazione
+# Copia i runtime di Dart necessari e i binari compilati
+COPY --from=build /runtime/ /
 COPY --from=build /app/build/bin/ /app/bin/
 
+# Espone la porta e forza Dart Frog adascoltare sulla porta fornita da Render (default 8080)
 EXPOSE 8080
+ENV PORT=8080
+
 CMD ["/app/bin/server"]
