@@ -11,8 +11,8 @@ COPY . .
 RUN dart pub global activate dart_frog_cli
 RUN dart pub global run dart_frog_cli:dart_frog build
 
-# Fase di esecuzione pulita usando l'immagine ufficiale di Dart
-FROM dart:stable-runtime
+# Fase di esecuzione con l'immagine standard di Dart
+FROM dart:stable
 
 WORKDIR /app
 
