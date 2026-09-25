@@ -14,10 +14,12 @@ COPY . .
 RUN dart pub global activate dart_frog_cli
 RUN dart pub global run dart_frog_cli:dart_frog build
 
-# Fase finale pulita e minimale
+# Fase finale pulita e minimale (scratch)
 FROM scratch
 COPY --from=build /runtime/ /
-COPY --from=build /app/build/bin/server /app/bin/server
+
+# Copia l'eseguibile generato da Dart Frog nella cartella di destinazione
+COPY --from=build /app/build/bin/ /app/bin/
 
 EXPOSE 8080
 CMD ["/app/bin/server"]
