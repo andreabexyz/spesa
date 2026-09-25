@@ -1,73 +1,76 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:backend_spesa/db.dart';
+import 'package:dart_frog/dart_frog.dart';
 
-class DatabaseHelper {
-  // L'URL del tuo backend pubblicata su Render
-  static const String baseUrl = 'https://spesa-6ekz.onrender.com/api/alimenti';
-
-  // INSERIMENTO: Aggiunge un prodotto inviando una richiesta POST al server
-  Future<void> inserisciProdotto(String nome) async {
-    try {
-      final response = await http.post(
-        Uri.parse(baseUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'nomeAlimento': nome, 'statoAlimento': 0}),
-      );
-
-      if (response.statusCode != 201) {
-        print('Errore durante l\'inserimento: ${response.body}');
-      }
-    } catch (e) {
-      print('Errore di connessione durante inserisciProdotto: $e');
-    }
-  }
-
-  // LETTURA: Richiede la lista completa al server tramite GET
-  Future<List<Map<String, dynamic>>> ottieniLista() async {
-    try {
-      final response = await http.get(Uri.parse(baseUrl));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.cast<Map<String, dynamic>>();
-      } else {
-        print('Errore lettura lista: ${response.body}');
-        return [];
-      }
-    } catch (e) {
-      print('Errore di connessione durante ottieniLista: $e');
-      return [];
-    }
-  }
-
-  // AGGIORNAMENTO: Modifica lo stato dell'alimento tramite PUT al server
-  Future<void> aggiornaStato(int id, int nuovoStato) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/$id'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'statoAlimento': nuovoStato}),
-      );
-
-      if (response.statusCode != 200) {
-        print('Errore durante l\'aggiornamento dello stato: ${response.body}');
-      }
-    } catch (e) {
-      print('Errore di connessione durante aggiornaStato: $e');
-    }
-  }
-
-  // CANCELLAZIONE: Elimina un prodotto inviando una richiesta DELETE al server
-  Future<void> cancellaProdotto(int id) async {
-    try {
-      final response = await http.delete(Uri.parse('$baseUrl/$id'));
-
-      if (response.statusCode != 200) {
-        print('Errore durante la cancellazione: ${response.body}');
-      }
-    } catch (e) {
-      print('Errore di connessione durante cancellaProdotto: $e');
-    }
+Future<Response> onRequest(RequestContext context) async {
+  switch (context.request.method) {
+    case HttpMethod.get:
+      return _getAlimenti();
+    case HttpMethod.post:
+      return _addAlimento(context);
+    default:
+      return Response(statusCode: HttpStatus.methodNotAllowed);
   }
 }
 
+// GET /api/alimenti -> Legge la lista dal database MySQL
+Future<Response> _getAlimenti() async {
+  try {
+    final conn = await DatabaseService.getConnection();
+    final results = await conn.execute('SELECT * FROM listaSpesa ORDER BY idAlimento DESC');
+    await conn.close();
+
+    final lista = results.rows.map((row) {
+      final map = row.assoc();
+      return {
+        'idAlimento': int.tryParse(map['idAlimento'] ?? '0') ?? 0,
+        'nomeAlimento': map['nomeAlimento'],
+        'statoAlimento': int.tryParse(map['statoAlimento'] ?? '0') ?? 0,
+      };
+    }).toList();
+
+    return Response.json(body: lista);
+  } catch (e) {
+    return Response.json(
+      statusCode: HttpStatus.internalServerError,
+      body: {'status': 'error', 'message': e.toString()},
+    );
+  }
+}
+
+// POST /api/alimenti -> Inserisce un nuovo alimento nel database MySQL
+Future<Response> _addAlimento(RequestContext context) async {
+  try {
+    final body = await context.request.json() as Map<String, dynamic>;
+    final nomeAlimento = body['nomeAlimento'] as String?;
+    final statoAlimento = body['statoAlimento'] as int? ?? 0;
+
+    if (nomeAlimento == null || nomeAlimento.trim().isEmpty) {
+      return Response.json(
+        statusCode: HttpStatus.badRequest,
+        body: {'status': 'error', 'message': 'nomeAlimento è obbligatorio'},
+      );
+    }
+
+    final conn = await DatabaseService.getConnection();
+    await conn.execute(
+      'INSERT INTO listaSpesa (nomeAlimento, statoAlimento) VALUES (:nome, :stato)',
+      {
+        'nome': nomeAlimento,
+        'stato': statoAlimento,
+      },
+    );
+    await conn.close();
+
+    return Response.json(
+      statusCode: HttpStatus.created,
+      body: {'status': 'success', 'message': 'Alimento salvato!'},
+    );
+  } catch (e) {
+    return Response.json(
+      statusCode: HttpStatus.internalServerError,
+      body: {'status': 'error', 'message': e.toString()},
+    );
+  }
+}
