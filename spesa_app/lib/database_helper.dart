@@ -1,70 +1,72 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class DatabaseHelper {
-  Database? _database;
+  // L'URL del tuo backend pubblicata su Render
+  static const String baseUrl = 'https://spesa-6ekz.onrender.com/api/alimenti';
 
-  // Getter per ottenere il database sempre pronto
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await inizializzaDB();
-    return _database!;
-  }
-
-  // Creazione del database e della tabella
-  Future<Database> inizializzaDB() async {
-    String percorsoCartella = await getDatabasesPath();
-    String camminoCompleto = join(percorsoCartella, 'spesa.db');
-
-    return await openDatabase(
-      camminoCompleto,
-      version: 1,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE listaSpesa (
-            idAlimento INTEGER PRIMARY KEY AUTOINCREMENT, 
-            nomeAlimento TEXT, 
-            statoAlimento INTEGER
-          )
-        ''');
-      },
-    );
-  }
-
-  // INSERIMENTO: Aggiunge un prodotto (di base con stato 0 = da comprare)
+  // INSERIMENTO: Aggiunge un prodotto inviando una richiesta POST al server
   Future<void> inserisciProdotto(String nome) async {
-    final db = await database;
-    Map<String, dynamic> riga = {
-      'nomeAlimento': nome,
-      'statoAlimento': 0, 
-    };
-    await db.insert('listaSpesa', riga);
+    try {
+      final response = await http.post(
+        Uri.parse(baseUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'nomeAlimento': nome, 'statoAlimento': 0}),
+      );
+
+      if (response.statusCode != 201) {
+        print('Errore durante l\'inserimento: ${response.body}');
+      }
+    } catch (e) {
+      print('Errore di connessione durante inserisciProdotto: $e');
+    }
   }
 
-  // LETTURA: Ritorna la lista di mappe con tutte le colonne (ID, Nome, Stato)
+  // LETTURA: Richiede la lista completa al server tramite GET
   Future<List<Map<String, dynamic>>> ottieniLista() async {
-    final db = await database;
-    return await db.query('listaSpesa');
+    try {
+      final response = await http.get(Uri.parse(baseUrl));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        print('Errore lettura lista: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Errore di connessione durante ottieniLista: $e');
+      return [];
+    }
   }
 
-  // AGGIORNAMENTO: Modifica lo stato dell'alimento (0 o 1) basandosi sull'ID
+  // AGGIORNAMENTO: Modifica lo stato dell'alimento tramite PUT al server
   Future<void> aggiornaStato(int id, int nuovoStato) async {
-    final db = await database;
-    await db.update(
-      'listaSpesa',
-      {'statoAlimento': nuovoStato},
-      where: 'idAlimento = ?',
-      whereArgs: [id],
-    );
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'statoAlimento': nuovoStato}),
+      );
+
+      if (response.statusCode != 200) {
+        print('Errore durante l\'aggiornamento dello stato: ${response.body}');
+      }
+    } catch (e) {
+      print('Errore di connessione durante aggiornaStato: $e');
+    }
   }
 
-  // CANCELLAZIONE: Elimina un prodotto tramite il suo ID univoco
+  // CANCELLAZIONE: Elimina un prodotto inviando una richiesta DELETE al server
   Future<void> cancellaProdotto(int id) async {
-    final db = await database;
-    await db.delete(
-      'listaSpesa',
-      where: 'idAlimento = ?',
-      whereArgs: [id],
-    );
+    try {
+      final response = await http.delete(Uri.parse('$baseUrl/$id'));
+
+      if (response.statusCode != 200) {
+        print('Errore durante la cancellazione: ${response.body}');
+      }
+    } catch (e) {
+      print('Errore di connessione durante cancellaProdotto: $e');
+    }
   }
 }
