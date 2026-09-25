@@ -1,5 +1,15 @@
+import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
 
 Response onRequest(RequestContext context) {
-  return Response(body: 'Welcome to Dart Frog!');
+  final indexFile = File('public/index.html');
+  
+  if (indexFile.existsSync()) {
+    return Response(
+      body: indexFile.readAsStringSync(),
+      headers: {'content-type': 'text/html; charset=utf-8'},
+    );
+  }
+
+  return Response(body: 'App Flutter non trovata nella cartella public.');
 }
