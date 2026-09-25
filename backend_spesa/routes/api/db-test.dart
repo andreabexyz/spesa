@@ -4,10 +4,11 @@ import 'package:dart_frog/dart_frog.dart';
 Future<Response> onRequest(RequestContext context) async {
   try {
     final conn = await DatabaseService.getConnection();
-    final results = await conn.query('SELECT 1 + 1 AS result');
+    final results = await conn.execute('SELECT 1 + 1 AS result');
     await conn.close();
 
-    final val = results.first['result'];
+    final val = results.rows.first.assoc()['result'];
+    
     return Response.json(
       body: {
         'status': 'success',
