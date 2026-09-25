@@ -1,25 +1,23 @@
-# Official Dart image
+# Usa l'immagine ufficiale di Dart
 FROM dart:stable AS build
 
-# Set directory dentro il container
 WORKDIR /app
 
-# Copia le dipendenze (relativamente a backend_spesa/)
+# Copia i file di configurazione delle dipendenze
 COPY pubspec.* ./
-COPY pubspec_overrides.yaml* ./
 RUN dart pub get
 
-# Copia l'intero codice sorgente della cartella backend_spesa/
+# Copia tutto il codice sorgente
 COPY . .
 
-# Allinea le dipendenze e compila l'eseguibile server.dart
-RUN dart pub get --offline
-RUN dart compile exe bin/server.dart -o bin/server
+# Attiva la CLI di Dart Frog e compila il pacchetto per la produzione
+RUN dart pub global activate dart_frog_cli
+RUN dart pub global run dart_frog_cli:dart_frog build
 
-# Immagine finale minimale per la produzione
+# Fase finale pulita e minimale
 FROM scratch
 COPY --from=build /runtime/ /
-COPY --from=build /app/bin/server /app/bin/
+COPY --from=build /app/build/bin/server /app/bin/server
 
-# Avvio del server
+EXPOSE 8080
 CMD ["/app/bin/server"]
