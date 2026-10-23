@@ -28,7 +28,7 @@ class SchermataSpesa extends StatefulWidget {
 class _SchermataSpesaState extends State<SchermataSpesa> {
   final TextEditingController _controller = TextEditingController();
   final DatabaseHelper _dbHelper = DatabaseHelper(); // Istanza del gestore DB
-  
+
   // Lista di mappe per contenere i dati del database (idAlimento, nomeAlimento, statoAlimento)
   List<Map<String, dynamic>> elementiSpesa = [];
 
@@ -49,9 +49,7 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('La Mia Spesa 🛒'),
-      ),
+      appBar: AppBar(title: const Text('Lista Spesa')),
       body: Column(
         children: [
           // 1. Lista dei prodotti
@@ -70,7 +68,7 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
                       int id = elementiSpesa[index]['idAlimento'];
                       // Se era 1 diventa 0, se era 0 diventa 1
                       int nuovoStato = esComprato ? 0 : 1;
-                      
+
                       // Aggiorna nel DB e rinfresca l'interfaccia
                       await _dbHelper.aggiornaStato(id, nuovoStato);
                       _caricaDati();
@@ -81,7 +79,9 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
                     elementiSpesa[index]['nomeAlimento'],
                     style: TextStyle(
                       color: esComprato ? Colors.grey : Colors.black,
-                      decoration: esComprato ? TextDecoration.lineThrough : TextDecoration.none,
+                      decoration: esComprato
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
                     ),
                   ),
                   trailing: IconButton(
@@ -111,11 +111,17 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.green, size: 40),
+                  icon: const Icon(
+                    Icons.add_circle,
+                    color: Colors.green,
+                    size: 40,
+                  ),
                   onPressed: () async {
                     String testoPulito = _controller.text.trim();
                     if (testoPulito.isNotEmpty) {
-                      await _dbHelper.inserisciProdotto(testoPulito); // Salva nel DB
+                      await _dbHelper.inserisciProdotto(
+                        testoPulito,
+                      ); // Salva nel DB
                       _caricaDati(); // Rinfresca lo schermo
                       _controller.clear(); // Svuota il campo di testo
                     }
