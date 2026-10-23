@@ -1,11 +1,11 @@
 {
-    "name": "spesa_app",
-    "short_name": "spesa_app",
+    "name": "Lista Spesa",
+    "short_name": "Lista Spesa",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "App per gestire la lista della spesa.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
