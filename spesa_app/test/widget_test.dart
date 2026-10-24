@@ -1,30 +1,66 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:spesa_app/database_helper.dart';
 import 'package:spesa_app/main.dart';
 
+class _FakeDatabaseHelper extends DatabaseHelper {
+  _FakeDatabaseHelper(this._provaBackend);
+
+  final Future<List<Map<String, dynamic>>?> Function() _provaBackend;
+
+  @override
+  Future<List<Map<String, dynamic>>?> provaBackend() => _provaBackend();
+}
+
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('shows image 3 for at least three seconds', (tester) async {
+    final backend = Completer<List<Map<String, dynamic>>?>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchermataSpesa(
+          databaseHelper: _FakeDatabaseHelper(() => backend.future),
+        ),
+      ),
+    );
+    backend.complete([]);
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(
+      (tester.widget<Image>(find.byType(Image)).image as AssetImage).assetName,
+      'assets/icons/3.jpg',
+    );
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Lista Spesa'), findsOneWidget);
+  });
+
+  testWidgets('cycles through images while the backend is unavailable', (
+    tester,
+  ) async {
+    final backend = Completer<List<Map<String, dynamic>>?>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchermataSpesa(
+          databaseHelper: _FakeDatabaseHelper(() => backend.future),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 3));
+    for (final image in ['0.jpg', '1.jpg', '2.jpg', '3.jpg']) {
+      expect(
+        (tester.widget<Image>(find.byType(Image)).image as AssetImage)
+            .assetName,
+        'assets/icons/$image',
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+
+    backend.complete([]);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(find.text('Lista Spesa'), findsOneWidget);
   });
 }

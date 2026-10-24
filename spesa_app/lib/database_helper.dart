@@ -1,9 +1,40 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class DatabaseHelper {
   // L'URL del tuo backend pubblicata su Render
   static const String baseUrl = 'https://spesa-6ekz.onrender.com/api/alimenti';
+
+  // Returns the initial list only when the backend and database are available.
+  Future<List<Map<String, dynamic>>?> provaBackend() async {
+    try {
+      final response = await http
+          .get(Uri.parse(baseUrl))
+          .timeout(const Duration(seconds: 40));
+
+      if (response.statusCode != 200) {
+        debugPrint('Backend non ancora pronto: HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final data = jsonDecode(response.body);
+      if (data is! List) {
+        debugPrint('Risposta non valida dal backend durante l’avvio.');
+        return null;
+      }
+
+      return data.map<Map<String, dynamic>>((item) {
+        if (item is! Map<String, dynamic>) {
+          throw const FormatException('Elemento della lista non valido');
+        }
+        return item;
+      }).toList();
+    } on Exception catch (e) {
+      debugPrint('Backend non ancora raggiungibile: $e');
+      return null;
+    }
+  }
 
   // INSERIMENTO: Aggiunge un prodotto inviando una richiesta POST al server
   Future<void> inserisciProdotto(String nome) async {

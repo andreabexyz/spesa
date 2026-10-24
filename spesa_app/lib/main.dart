@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'database_helper.dart'; // Importiamo il gestore del database
 
@@ -6,20 +8,24 @@ void main() {
 }
 
 class SpesaApp extends StatelessWidget {
-  const SpesaApp({super.key});
+  const SpesaApp({super.key, this.databaseHelper});
+
+  final DatabaseHelper? databaseHelper;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Lista Spesa',
       theme: ThemeData(primarySwatch: Colors.green),
-      home: const SchermataSpesa(),
+      home: SchermataSpesa(databaseHelper: databaseHelper),
     );
   }
 }
 
 class SchermataSpesa extends StatefulWidget {
-  const SchermataSpesa({super.key});
+  const SchermataSpesa({super.key, this.databaseHelper});
+
+  final DatabaseHelper? databaseHelper;
 
   @override
   State<SchermataSpesa> createState() => _SchermataSpesaState();
@@ -27,7 +33,10 @@ class SchermataSpesa extends StatefulWidget {
 
 class _SchermataSpesaState extends State<SchermataSpesa> {
   final TextEditingController _controller = TextEditingController();
-  final DatabaseHelper _dbHelper = DatabaseHelper(); // Istanza del gestore DB
+  late final DatabaseHelper _dbHelper;
+  late final Timer _timerAnimazione;
+  int _intervalliAnimazione = 0;
+  bool _backendPronto = false;
 
   // Lista di mappe per contenere i dati del database (idAlimento, nomeAlimento, statoAlimento)
   List<Map<String, dynamic>> elementiSpesa = [];
@@ -35,19 +44,74 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
   @override
   void initState() {
     super.initState();
-    _caricaDati(); // Carica i prodotti all'avvio dell'app
+    _dbHelper = widget.databaseHelper ?? DatabaseHelper();
+    _timerAnimazione = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted && !_backendPronto) {
+        _intervalliAnimazione++;
+        setState(() {});
+      }
+    });
+    _avviaApp();
+  }
+
+  Future<void> _avviaApp() async {
+    final attesaMinima = Future<void>.delayed(const Duration(seconds: 3));
+    final dati = await _attendiBackend();
+    await attesaMinima;
+
+    if (!mounted || dati == null) return;
+    setState(() {
+      elementiSpesa = dati;
+      _backendPronto = true;
+    });
+    _timerAnimazione.cancel();
+  }
+
+  Future<List<Map<String, dynamic>>?> _attendiBackend() async {
+    while (mounted) {
+      final dati = await _dbHelper.provaBackend();
+      if (dati != null) return dati;
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    return null;
   }
 
   // Funzione per leggere i dati dal DB e aggiornare lo schermo
   Future<void> _caricaDati() async {
     List<Map<String, dynamic>> datiDalDb = await _dbHelper.ottieniLista();
+    if (!mounted) return;
     setState(() {
       elementiSpesa = datiDalDb;
     });
   }
 
   @override
+  void dispose() {
+    _timerAnimazione.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_backendPronto) {
+      const sequenza = ['0.jpg', '1.jpg', '2.jpg', '3.jpg'];
+      final immagine = _intervalliAnimazione < 6
+          ? '3.jpg'
+          : sequenza[(_intervalliAnimazione - 6) % sequenza.length];
+
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Image.asset(
+            'assets/icons/$immagine',
+            fit: BoxFit.contain,
+            width: MediaQuery.sizeOf(context).width * 0.8,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Lista Spesa')),
       body: Column(
