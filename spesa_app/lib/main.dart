@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'database_helper.dart'; // Importiamo il gestore del database
 
@@ -34,8 +32,6 @@ class SchermataSpesa extends StatefulWidget {
 class _SchermataSpesaState extends State<SchermataSpesa> {
   final TextEditingController _controller = TextEditingController();
   late final DatabaseHelper _dbHelper;
-  late final Timer _timerAnimazione;
-  int _intervalliAnimazione = 0;
   bool _backendPronto = false;
 
   // Lista di mappe per contenere i dati del database (idAlimento, nomeAlimento, statoAlimento)
@@ -45,26 +41,17 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
   void initState() {
     super.initState();
     _dbHelper = widget.databaseHelper ?? DatabaseHelper();
-    _timerAnimazione = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (mounted && !_backendPronto) {
-        _intervalliAnimazione++;
-        setState(() {});
-      }
-    });
     _avviaApp();
   }
 
   Future<void> _avviaApp() async {
-    final attesaMinima = Future<void>.delayed(const Duration(seconds: 3));
     final dati = await _attendiBackend();
-    await attesaMinima;
 
     if (!mounted || dati == null) return;
     setState(() {
       elementiSpesa = dati;
       _backendPronto = true;
     });
-    _timerAnimazione.cancel();
   }
 
   Future<List<Map<String, dynamic>>?> _attendiBackend() async {
@@ -87,35 +74,17 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
 
   @override
   void dispose() {
-    _timerAnimazione.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_backendPronto) {
-      const sequenza = ['0.jpg', '1.jpg', '2.jpg', '3.jpg'];
-      final immagine = _intervalliAnimazione < 6
-          ? '3.jpg'
-          : sequenza[(_intervalliAnimazione - 6) % sequenza.length];
-
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: Image.asset(
-            'assets/icons/$immagine',
-            fit: BoxFit.contain,
-            width: MediaQuery.sizeOf(context).width * 0.8,
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Lista Spesa')),
       body: Column(
         children: [
+          if (!_backendPronto) const LinearProgressIndicator(),
           // 1. Lista dei prodotti
           Expanded(
             child: ListView.builder(
@@ -169,6 +138,7 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    enabled: _backendPronto,
                     decoration: const InputDecoration(
                       hintText: 'Aggiungi un prodotto...',
                     ),
@@ -180,7 +150,8 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
                     color: Colors.green,
                     size: 40,
                   ),
-                  onPressed: () async {
+                  onPressed: _backendPronto
+                      ? () async {
                     String testoPulito = _controller.text.trim();
                     if (testoPulito.isNotEmpty) {
                       await _dbHelper.inserisciProdotto(
@@ -189,7 +160,8 @@ class _SchermataSpesaState extends State<SchermataSpesa> {
                       _caricaDati(); // Rinfresca lo schermo
                       _controller.clear(); // Svuota il campo di testo
                     }
-                  },
+                  }
+                      : null,
                 ),
               ],
             ),
